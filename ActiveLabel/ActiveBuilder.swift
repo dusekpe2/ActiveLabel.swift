@@ -18,7 +18,7 @@ struct ActiveBuilder {
             return createElementsIgnoringFirstCharacter(from: text, for: type, range: range, filterPredicate: filterPredicate)
         case .url:
             return createElements(from: text, for: type, range: range, filterPredicate: filterPredicate)
-        case .custom:
+        case .custom, .bold, .header, .italic:
             return createElements(from: text, for: type, range: range, minLength: 1, filterPredicate: filterPredicate)
         }
     }
@@ -96,5 +96,93 @@ struct ActiveBuilder {
             }
         }
         return elements
+    }
+    
+    static func createBoldText(from text: String, range: NSRange) -> ([ElementTuple], String) {
+        let type = ActiveType.bold
+        var text = text
+        let matches = RegexParser.getElements(from: text, with: type.pattern, range: range)
+        let nsstring = text as NSString
+        var elements: [ElementTuple] = []
+        
+        for match in matches where match.range.length > 2 {
+            let word = nsstring.substring(with: match.range)
+            
+            var wordToRemove = word
+            wordToRemove.remove(at: wordToRemove.startIndex)
+            wordToRemove.remove(at: wordToRemove.startIndex)
+            wordToRemove.remove(at: wordToRemove.index(before: wordToRemove.endIndex))
+            wordToRemove.remove(at: wordToRemove.index(before: wordToRemove.endIndex))
+            
+            let trimmedWord = wordToRemove
+            text = text.replacingOccurrences(of: word, with: trimmedWord)
+
+            let newRange = (text as NSString).range(of: trimmedWord)
+            let element = ActiveElement.bold(text)
+            elements.append((newRange, element, type))
+        }
+        return (elements, text)
+    }
+    
+    static func createHeaderText(from text: String, range: NSRange) -> ([ElementTuple], String) {
+        let type = ActiveType.header
+        var text = text
+        let matches = RegexParser.getElements(from: text, with: type.pattern, range: range)
+        let nsstring = text as NSString
+        var elements: [ElementTuple] = []
+        
+        for match in matches where match.range.length > 2 {
+            let word = nsstring.substring(with: match.range)
+            
+            var wordToRemove = word
+            
+            while wordToRemove.hasPrefix("#") {
+                wordToRemove.remove(at: wordToRemove.startIndex)
+            }
+            
+//            wordToRemove.remove(at: wordToRemove.startIndex)
+            wordToRemove.remove(at: wordToRemove.startIndex)
+            
+            let trimmedWord = wordToRemove
+            text = text.replacingOccurrences(of: word, with: trimmedWord)
+
+            let newRange = (text as NSString).range(of: trimmedWord)
+            let element = ActiveElement.header(text)
+            elements.append((newRange, element, type))
+        }
+        return (elements, text)
+    }
+    
+    static func createItalicText(from text: String, range: NSRange) -> ([ElementTuple], String) {
+        let type = ActiveType.italic
+        var text = text
+        let matches = RegexParser.getElements(from: text, with: type.pattern, range: range)
+        let nsstring = text as NSString
+        var elements: [ElementTuple] = []
+        
+        for match in matches where match.range.length > 2 {
+            let word = nsstring.substring(with: match.range)
+            
+            var wordToRemove = word
+            
+            for character in wordToRemove {
+                if character == "*" {
+                    if let index = wordToRemove.firstIndex(of: character) {
+                        wordToRemove.remove(at: index)
+                    }
+                    break
+                }
+            }
+            
+            wordToRemove.remove(at: wordToRemove.index(before: wordToRemove.endIndex))
+            
+            let trimmedWord = wordToRemove
+            text = text.replacingOccurrences(of: word, with: trimmedWord)
+
+            let newRange = (text as NSString).range(of: trimmedWord)
+            let element = ActiveElement.italic(text)
+            elements.append((newRange, element, type))
+        }
+        return (elements, text)
     }
 }

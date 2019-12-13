@@ -39,10 +39,28 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
     @IBInspectable open var hashtagSelectedColor: UIColor? {
         didSet { updateTextStorage(parseText: false) }
     }
+    @IBInspectable open var headerColor: UIColor = .black {
+        didSet { updateTextStorage(parseText: false) }
+    }
+    @IBInspectable open var headerSelectedColor: UIColor? {
+        didSet { updateTextStorage(parseText: false) }
+    }
     @IBInspectable open var URLColor: UIColor = .blue {
         didSet { updateTextStorage(parseText: false) }
     }
     @IBInspectable open var URLSelectedColor: UIColor? {
+        didSet { updateTextStorage(parseText: false) }
+    }
+    @IBInspectable open var boldColor: UIColor = .black {
+        didSet { updateTextStorage(parseText: false) }
+    }
+    @IBInspectable open var boldSelectedColor: UIColor? {
+        didSet { updateTextStorage(parseText: false) }
+    }
+    @IBInspectable open var italicColor: UIColor = .black {
+        didSet { updateTextStorage(parseText: false) }
+    }
+    @IBInspectable open var italicSelectedColor: UIColor? {
         didSet { updateTextStorage(parseText: false) }
     }
     open var customColor: [ActiveType : UIColor] = [:] {
@@ -83,6 +101,10 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
         urlTapHandler = handler
     }
     
+    open func handleBoldLTap(_ handler: @escaping (String) -> ()) {
+        boldTapHandler = handler
+    }
+    
     open func handleCustomTap(for type: ActiveType, handler: @escaping (String) -> ()) {
         customTapHandlers[type] = handler
     }
@@ -91,10 +113,16 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
         switch type {
         case .hashtag:
             hashtagTapHandler = nil
+        case .header:
+            headerTapHandler = nil
         case .mention:
             mentionTapHandler = nil
         case .url:
             urlTapHandler = nil
+        case .bold:
+            boldTapHandler = nil
+        case .italic:
+            italicTapHandler = nil
         case .custom:
             customTapHandlers[type] = nil
         }
@@ -211,7 +239,10 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
             switch selectedElement.element {
             case .mention(let userHandle): didTapMention(userHandle)
             case .hashtag(let hashtag): didTapHashtag(hashtag)
+            case .header(let header): didTapHeader(header)
             case .url(let originalURL, _): didTapStringURL(originalURL)
+            case .bold(let text): didTapBold(text)
+            case .italic(let text): didTapItalic(text)
             case .custom(let element): didTap(element, for: selectedElement.type)
             }
             
@@ -239,6 +270,9 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
     
     internal var mentionTapHandler: ((String) -> ())?
     internal var hashtagTapHandler: ((String) -> ())?
+    internal var headerTapHandler: ((String) -> ())?
+    internal var boldTapHandler: ((String) -> ())?
+    internal var italicTapHandler: ((String) -> ())?
     internal var urlTapHandler: ((URL) -> ())?
     internal var customTapHandlers: [ActiveType : ((String) -> ())] = [:]
     
@@ -319,6 +353,9 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
             switch type {
             case .mention: attributes[NSAttributedString.Key.foregroundColor] = mentionColor
             case .hashtag: attributes[NSAttributedString.Key.foregroundColor] = hashtagColor
+            case .header: attributes[NSAttributedString.Key.foregroundColor] = headerColor
+            case .bold: attributes[NSAttributedString.Key.foregroundColor] = boldColor
+            case .italic: attributes[NSAttributedString.Key.foregroundColor] = italicColor
             case .url: attributes[NSAttributedString.Key.foregroundColor] = URLColor
             case .custom: attributes[NSAttributedString.Key.foregroundColor] = customColor[type] ?? defaultCustomColor
             }
@@ -343,6 +380,36 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
         var textLength = textString.utf16.count
         var textRange = NSRange(location: 0, length: textLength)
         
+//        if enabledTypes.contains(.bold) {
+//            let tuple = ActiveBuilder.createBoldText(from: textString, range: textRange)
+//            let boldElements = tuple.0
+//            let finalText = tuple.1
+//            textString = finalText
+//            textLength = textString.utf16.count
+//            textRange = NSRange(location: 0, length: textLength)
+//            activeElements[.bold] = boldElements
+//        }
+//
+//        if enabledTypes.contains(.header) {
+//            let tuple = ActiveBuilder.createHeaderText(from: textString, range: textRange)
+//            let headerElements = tuple.0
+//            let finalText = tuple.1
+//            textString = finalText
+//            textLength = textString.utf16.count
+//            textRange = NSRange(location: 0, length: textLength)
+//            activeElements[.header] = headerElements
+//        }
+//
+//        if enabledTypes.contains(.italic) {
+//            let tuple = ActiveBuilder.createItalicText(from: textString, range: textRange)
+//            let italicElements = tuple.0
+//            let finalText = tuple.1
+//            textString = finalText
+//            textLength = textString.utf16.count
+//            textRange = NSRange(location: 0, length: textLength)
+//            activeElements[.italic] = italicElements
+//        }
+        
         if enabledTypes.contains(.url) {
             let tuple = ActiveBuilder.createURLElements(from: textString, range: textRange, maximumLength: urlMaximumLength)
             let urlElements = tuple.0
@@ -353,7 +420,7 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
             activeElements[.url] = urlElements
         }
         
-        for type in enabledTypes where type != .url {
+        for type in enabledTypes where (type != .url && type != .bold && type != .header && type != .italic) {
             var filter: ((String) -> Bool)? = nil
             if type == .mention {
                 filter = mentionFilterPredicate
@@ -399,7 +466,10 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
             switch type {
             case .mention: selectedColor = mentionSelectedColor ?? mentionColor
             case .hashtag: selectedColor = hashtagSelectedColor ?? hashtagColor
+            case .header: selectedColor = headerSelectedColor ?? headerColor
             case .url: selectedColor = URLSelectedColor ?? URLColor
+            case .bold: selectedColor = boldSelectedColor ?? boldColor
+            case .italic: selectedColor = italicSelectedColor ?? italicColor
             case .custom:
                 let possibleSelectedColor = customSelectedColor[selectedElement.type] ?? customColor[selectedElement.type]
                 selectedColor = possibleSelectedColor ?? defaultCustomColor
@@ -410,7 +480,10 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
             switch type {
             case .mention: unselectedColor = mentionColor
             case .hashtag: unselectedColor = hashtagColor
+            case .header: unselectedColor = headerColor
             case .url: unselectedColor = URLColor
+            case .bold: unselectedColor = boldColor
+            case .italic: unselectedColor = italicColor
             case .custom: unselectedColor = customColor[selectedElement.type] ?? defaultCustomColor
             }
             attributes[NSAttributedString.Key.foregroundColor] = unselectedColor
@@ -493,6 +566,30 @@ typealias ElementTuple = (range: NSRange, element: ActiveElement, type: ActiveTy
             return
         }
         hashtagHandler(hashtag)
+    }
+    
+    fileprivate func didTapHeader(_ text: String) {
+        guard let headerHandler = headerTapHandler else {
+            delegate?.didSelect(text, type: .header)
+            return
+        }
+        headerHandler(text)
+    }
+    
+    fileprivate func didTapBold(_ text: String) {
+        guard let boldHandler = boldTapHandler else {
+            delegate?.didSelect(text, type: .bold)
+            return
+        }
+        boldHandler(text)
+    }
+    
+    fileprivate func didTapItalic(_ text: String) {
+        guard let italicHandler = italicTapHandler else {
+            delegate?.didSelect(text, type: .italic)
+            return
+        }
+        italicHandler(text)
     }
     
     fileprivate func didTapStringURL(_ stringURL: String) {
